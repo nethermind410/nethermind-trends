@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#0f0a1e">
+  <title>Nethermind Trends</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎯</text></svg>">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body{background:linear-gradient(135deg,#0f0a1e,#1a0a2e,#0f0a1e);min-height:100vh}
+    .grad{background:linear-gradient(90deg,#ec4899,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+    .card{background:rgba(30,20,50,0.8);border:1px solid rgba(168,85,247,0.2)}
+    .btn{background:linear-gradient(90deg,#ec4899,#a855f7)}
+    .btn:active{transform:scale(0.98)}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+    .pulse{animation:pulse 2s infinite}
+  </style>
+</head>
+<body class="text-white font-sans">
+  <div id="app">
+    <header class="sticky top-0 z-50 backdrop-blur border-b border-purple-500/20 px-4 py-3" style="background:rgba(15,10,30,0.95)">
+      <div class="max-w-lg mx-auto flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-bold grad">NETHERMIND</h1>
+          <p class="text-xs text-gray-400">Trend Hunter</p>
+        </div>
+        <span id="date" class="text-xs text-gray-500"></span>
+      </div>
+    </header>
+    <main class="max-w-lg mx-auto px-4 py-6 pb-24" id="main">
+      <div class="text-center py-16" id="start">
+        <div class="text-6xl mb-6">🎯</div>
+        <h2 class="text-xl font-semibold mb-2">Ready to hunt trends?</h2>
+        <p class="text-gray-400 mb-8">Real data from Reddit + MyAnimeList</p>
+        <button onclick="fetchTrends()" class="w-full py-4 px-6 btn rounded-xl font-semibold text-lg">Get Today's Briefs</button>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    let data = null;
+
+    async function fetchTrends() {
+      document.getElementById('main').innerHTML = `
+        <div class="text-center py-16">
+          <div class="text-5xl mb-4 pulse">🔍</div>
+          <p class="text-gray-300">Fetching real trends...</p>
+        </div>`;
+      
+      try {
+        const res = await fetch('/api/trends');
+        if (!res.ok) throw new Error('API error: ' + res.status);
+        data = await res.json();
+        document.getElementById('date').textContent = data.date;
+        localStorage.setItem('trends', JSON.stringify(data));
+        render();
+      } catch (e) {
+        const cached = localStorage.getItem('trends');
+        if (cached) {
+          data = JSON.parse(cached);
+          render();
+        } else {
+          document.getElementById('main').innerHTML = `
+            <div class="card rounded-xl p-4 text-center">
+              <p class="text-red-400 mb-4">Error: ${e.message}</p>
+              <button onclick="fetchTrends()" class="underline">Try again</button>
+            </div>`;
+        }
+      }
+    }
+
+    function copy(text, btn) {
+      navigator.clipboard.writeText(text);
+      btn.textContent = '✓';
+      btn.classList.add('bg-green-500');
+      setTimeout(() => { btn.textContent = '📋'; btn.classList.remove('bg-green-500'); }, 1500);
+    }
+
+    function render() {
+      if (!data) return;
+      let html = '<div class="space-y-6">';
+      
+      data.briefs.forEach((b, i) => {
+        const icon = b.type === 'anime' ? '⚔️' : b.type === 'gaming' ? '🎮' : '💀';
+        html += `
+          <section class="card rounded-2xl p-5">
+            <div class="flex items-center gap-2 mb-4">
+              <span class="text-2xl">${icon}</span>
+              <div>
+                <h2 class="font-bold">${b.title}</h2>
+                ${b.engagement ? `<p class="text-xs text-green-400">${b.engagement}</p>` : ''}
+              </div>
+            </div>
+            <div class="space-y-4">
+              <div>
+                <p class="text-pink-400 text-xs uppercase tracking-wide mb-1">Concept</p>
+                <p class="text-sm">${b.concept}</p>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <p class="text-pink-400 text-xs uppercase tracking-wide mb-1">Hook</p>
+                  <p class="font-bold">"${b.hook}"</p>
+                </div>
+                <div>
+                  <p class="text-pink-400 text-xs uppercase tracking-wide mb-1">Type</p>
+                  <p class="text-sm capitalize">${b.type}</p>
+                </div>
+              </div>
+              ${b.searchYouTube ? `
+              <div>
+                <p class="text-pink-400 text-xs uppercase tracking-wide mb-1">Search YouTube</p>
+                <div class="flex items-center gap-2">
+                  <code class="text-xs bg-black/30 px-3 py-2 rounded-lg flex-1">${b.searchYouTube}</code>
+                  <button onclick="copy('${b.searchYouTube.replace(/'/g, "\\'")}', this)" class="p-2 bg-gray-700 rounded-lg">📋</button>
+                </div>
+              </div>` : ''}
+              <div>
+                <p class="text-pink-400 text-xs uppercase tracking-wide mb-1">Edit Style</p>
+                <p class="text-sm text-gray-300">${b.editStyle}</p>
+              </div>
+              <div>
+                <p class="text-pink-400 text-xs uppercase tracking-wide mb-1">Caption</p>
+                <div class="flex items-start gap-2">
+                  <p class="text-sm flex-1 bg-black/30 rounded-lg p-3">${b.caption}</p>
+                  <button onclick="copy(\`${b.caption.replace(/`/g, '\\`')}\`, this)" class="p-2 bg-gray-700 rounded-lg shrink-0">📋</button>
+                </div>
+              </div>
+              <div>
+                <p class="text-pink-400 text-xs uppercase tracking-wide mb-1">Hashtags</p>
+                <div class="flex items-start gap-2">
+                  <p class="text-sm flex-1 bg-black/30 rounded-lg p-3 text-purple-300">${b.hashtags}</p>
+                  <button onclick="copy('${b.hashtags}', this)" class="p-2 bg-gray-700 rounded-lg shrink-0">📋</button>
+                </div>
+              </div>
+              ${b.source ? `<a href="${b.source}" target="_blank" class="block text-xs text-purple-400 underline">View source →</a>` : ''}
+            </div>
+          </section>`;
+      });
+
+      if (data.raw?.airingAnime?.length) {
+        html += `<section class="card rounded-2xl p-5"><h3 class="font-bold mb-4">📺 Currently Airing</h3><div class="space-y-3">`;
+        data.raw.airingAnime.forEach(a => {
+          html += `
+            <div class="flex items-center gap-3 bg-black/20 rounded-lg p-2">
+              ${a.image ? `<img src="${a.image}" class="w-12 h-16 object-cover rounded">` : ''}
+              <div class="flex-1 min-w-0">
+                <p class="font-medium text-sm truncate">${a.titleEnglish || a.title}</p>
+                <p class="text-xs text-gray-400">${(a.genres || []).slice(0,2).join(', ')}</p>
+                <p class="text-xs text-green-400">${(a.members||0).toLocaleString()} viewers</p>
+              </div>
+            </div>`;
+        });
+        html += '</div></section>';
+      }
+
+      html += `<button onclick="fetchTrends()" class="w-full py-4 px-6 bg-gray-800 hover:bg-gray-700 border border-purple-500/30 rounded-xl font-semibold">🔄 Refresh</button></div>`;
+      document.getElementById('main').innerHTML = html;
+    }
+
+    // Load cached on start
+    const cached = localStorage.getItem('trends');
+    if (cached) {
+      data = JSON.parse(cached);
+      document.getElementById('date').textContent = data.date;
+    }
+  </script>
+</body>
+</html>
